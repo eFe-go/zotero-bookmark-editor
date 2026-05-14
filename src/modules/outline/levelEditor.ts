@@ -669,7 +669,11 @@ async function persistAndSync(
 ): Promise<void> {
   const rootList = modalDoc.getElementById("root-list");
   if (!rootList) return;
-  const serialize = (ul: Element): OutlineNode[] => {
+  // Compute level dynamically from DOM depth so we ignore any stale
+  // `level` attribute left over from addNewNode / drag-drop / nest ops.
+  // The sidebar relies on level-N CSS classes for the rainbow border,
+  // so a wrong level here paints children with the parent's color.
+  const serialize = (ul: Element, currentLevel: number): OutlineNode[] => {
     const items = Array.from(
       ul.querySelectorAll(":scope > li.tree-item"),
     ) as HTMLLIElement[];
@@ -678,17 +682,17 @@ async function persistAndSync(
       const nodeDiv = li.querySelector("div.tree-node")!;
       const childUl = li.querySelector(":scope > ul");
       return {
-        level: parseInt(nodeDiv.getAttribute("level") || "1"),
+        level: currentLevel,
         title: titleSpan.textContent || "",
         page: parseInt(nodeDiv.getAttribute("page") || "1"),
         x: parseFloat(nodeDiv.getAttribute("x") || "0"),
         y: parseFloat(nodeDiv.getAttribute("y") || "0"),
-        children: childUl ? serialize(childUl) : [],
+        children: childUl ? serialize(childUl, currentLevel + 1) : [],
         collapsed: li.classList.contains("collapsed"),
       };
     });
   };
-  const outline = serialize(rootList);
+  const outline = serialize(rootList, 1);
   await saveOutlineToJSON(reader._item, outline);
 
   // Refresh the sidebar tree of the reader so it picks up the new state.
