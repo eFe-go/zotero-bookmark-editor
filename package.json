@@ -1,23 +1,26 @@
 {
-  "name": "jasminum",
-  "version": "1.1.37",
-  "description": "一个简单的 Zotero 中文插件",
+  "name": "zotero-bookmark-editor",
+  "version": "0.1.0",
+  "description": "Editor de marcadores (outline) editables para PDFs en Zotero. Escribe los bookmarks dentro del archivo PDF usando pdf-lib (estandar /Outlines).",
   "config": {
-    "addonName": "Jasminum",
-    "addonID": "jasminum@linxzh.com",
-    "addonRef": "jasminum",
-    "addonInstance": "Jasminum",
-    "prefsPrefix": "extensions.jasminum"
+    "addonName": "Bookmark Editor",
+    "addonID": "zotero-bookmark-editor@eFe-go.github.io",
+    "addonRef": "bookmark-editor",
+    "addonInstance": "BookmarkEditor",
+    "prefsPrefix": "extensions.bookmark-editor"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/l0o0/jasminum.git"
+    "url": "git+https://github.com/eFe-go/zotero-bookmark-editor.git"
   },
-  "author": "l0o0",
+  "author": "eFe-go",
+  "contributors": [
+    "l0o0 (Jasminum original author)"
+  ],
   "bugs": {
-    "url": "https://github.com/l0o0/jasminum/issues"
+    "url": "https://github.com/eFe-go/zotero-bookmark-editor/issues"
   },
-  "homepage": "https://github.com/l0o0/jasminum#readme",
+  "homepage": "https://github.com/eFe-go/zotero-bookmark-editor#readme",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "zotero-plugin serve",
@@ -29,13 +32,11 @@
   },
   "dependencies": {
     "pdf-lib": "^1.17.1",
-    "string-similarity": "^4.0.4",
     "zotero-plugin-toolkit": "5.1.0-beta.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
     "@types/node": "^25.0.10",
-    "@types/string-similarity": "^4.0.2",
     "eslint": "^9.27.0",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3",

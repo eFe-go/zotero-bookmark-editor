@@ -1,74 +1,90 @@
-<div align=center>
+<div align="center">
 
-![Jasminum](./addon/chrome/content/icons/icon.png)
+# Bookmark Editor para Zotero
 
-# 茉莉花 Jasminum
+[![Zotero target version](https://img.shields.io/badge/Zotero-7%2B-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue?style=flat-square)](LICENSE) [![Fork of Jasminum](https://img.shields.io/badge/fork%20of-Jasminum-purple?style=flat-square)](https://github.com/l0o0/jasminum)
 
-[![zotero target version](https://img.shields.io/badge/Zotero-8/9-green?style=flat-square&logo=zotero&logoColor=CC2936)](https://www.zotero.org) [![Using Zotero Plugin Template](https://img.shields.io/badge/Using-Zotero%20Plugin%20Template-blue?style=flat-square&logo=github)](https://github.com/windingwind/zotero-plugin-template) ![Release](https://img.shields.io/github/release/l0o0/jasminum?style=flat-square)
+**Editor minimalista de marcadores (outline) editables para PDFs en Zotero**
 
 </div>
-</br>
 
-简体中文 | [English](doc/README-en.md)
+---
 
-## 1. 基础功能
+## Qué es
 
-- 中文PDF元数据抓取
-- 中文转换器下载，转换器来源于 Zotero中文社区 [translators_CN](https://github.com/l0o0/translators_CN)
-- 中文引用格式下载，引用格式来源于项目 Zotero中文社区 [styles](https://github.com/zotero-chinese/styles)
-- 小工具
-  - 语言设置
-  - 中文姓名拆分与合并
+Un plugin de Zotero 7+ que agrega un panel editable en la barra lateral del lector de PDFs. Permite crear, renombrar, anidar, reordenar y borrar marcadores, y **escribirlos dentro del archivo PDF** (en el campo `/Outlines` del catálogo, según el estándar PDF). Los marcadores viajan con el archivo: cualquier lector que respete el estándar PDF (Adobe Acrobat, Xodo, SumatraPDF, la app de Android de Zotero, etc.) los va a ver.
 
-## 2.使用教程
+## Por qué existe
 
-### 2.1 元数据抓取
+Este plugin es un **fork minimalista** de [Jasminum](https://github.com/l0o0/jasminum) (de [l0o0](https://github.com/l0o0)). Jasminum es un plugin excelente, pero está orientado a la comunidad china y trae mucho que no le sirve a usuarios fuera de ese contexto: integración con CNKI, WanFang, Yiigle, ChinaDOI; descarga de traductores chinos; plugin de WPS Office; herramientas de nombres chinos.
 
-目前支持仅支持从**中国知网**获取元数据，后续考虑会添加其他数据来源。
+Este fork extirpa todo eso y deja **sólo el módulo de marcadores y outline editables**, con UI en español e inglés.
 
-在 Zotero 中添加中文附件后，右键附件，在菜单栏选择`茉莉花抓取` -> `抓取期刊元数据`，在弹出窗口可以看到元数据抓取的结果。
-如果有多个搜索结果，需要你手动选择最匹配的结果，再点击确认，即可完成抓取。
+## Cómo funciona internamente
 
-![alt text](doc/images/image2.png)
+Usa la librería [`pdf-lib`](https://github.com/Hopding/pdf-lib) (embebida en un Web Worker) para inyectar el outline dentro del archivo PDF respetando el spec PDF §12.3.3. La operación es:
 
-### 2.3 本地附件匹配功能
+```
+1. Lee el PDF a memoria
+2. Construye un PDFDict para cada bookmark (Title, Parent, Prev, Next, Dest)
+3. Lo asigna al catalog.Outlines del documento
+4. Reescribe el archivo PDF
+```
 
-在使用 Zotero Connector 在浏览器上抓取中文期刊时（尤其是中国知网），经常出现元数据抓取成功而附件无法下载自动的异常，当你手动下载期刊附件（PDF/CAJ）后，可以方便地用此功能来将下载的附件与元数据匹配。
+Mientras no apretás "Guardar en el PDF", los marcadores viven en un JSON dentro de Zotero. Cuando guardás, quedan persistidos dentro del archivo.
 
-右键期刊条目，`小工具` -> `在下载文件夹中查找附件`，该功能会自动在当前`下载目录`中寻找与当前条目匹配的附件，匹配规划是**根据期刊标题与文件名的匹配度**。
+## Instalación
 
-`下载目录`默认是系统的下载目录，Windows系统默认是`C:\Users\用户名\Downloads`，Mac系统默认是`/Users/用户名/Downloads`，Linux系统默认是`/home/用户名/Downloads`。也可以在`设置`中修改下载目录。
+1. Descargá el `.xpi` desde [Releases](https://github.com/eFe-go/zotero-bookmark-editor/releases)
+2. En Zotero: **Tools → Plugins → ⚙️ → Install Plugin From File** → elegí el `.xpi`
+3. Reiniciá Zotero
 
-下载目录中匹配成功的附件默认会移动到备份目录中`下载目录/jasminum-backup`中，在设置中还可以选择
+## Uso
 
-- 删除匹配成功的附件。匹配到元数据的附件已经保存到Zotero中，可以放心删除下载目录中的附件（个人建议删除，避免下载目录中附件过多）。
-- 无须处理。即使匹配成功，附件还是会在下载目录中，当然Zotero已经保存了一份。
+1. Abrí un PDF en el lector de Zotero
+2. En la barra lateral izquierda aparece un icono nuevo del plugin (📑)
+3. Click → se despliega el panel
+4. Usá los botones de la toolbar:
+   - **➕** Agregar marcador en la página actual
+   - **🗑** Borrar el marcador seleccionado
+   - **💾** Guardar el outline dentro del archivo PDF
+   - **⤢** Expandir todo / **⤡** Colapsar todo
+5. Arrastrá nodos para reordenar y anidar
+6. Doble click sobre el nombre para renombrarlo
 
-### 2.3 PDF大纲
+### Atajos de teclado
 
-在 PDF 阅读窗口的左侧边栏中，点击茉莉花书签按钮，即可看到书签大纲窗口。
+| Tecla | Acción |
+|---|---|
+| ↑ / ↓ | Navegar entre marcadores |
+| ← / → | Colapsar / expandir nodo |
+| Espacio | Editar nombre |
+| `[` / `]` | Mover marcador al nivel superior / inferior |
+| `\` | Crear marcador hijo |
+| Delete / Backspace | Borrar marcador |
 
-![alt text](doc/images/image.png)
+## Compatibilidad
 
-最上方的5个按钮，功能分别是：
+- **Zotero 7+** (compatible con Zotero 8 cuando se libere)
+- Funciona con PDFs almacenados (`stored attachments`) y vinculados (`linked attachments`)
+- Los marcadores escritos al PDF son leídos por Adobe Acrobat, Xodo, SumatraPDF, Foxit, PDF-XChange y la app oficial de Zotero para Android
 
-- 展开所有书签
-- 折叠所有书签
-- 添加书签
-- 删除书签
-- 将书签内容保存到PDF（默认只以配置文件的形式保存到本地）
+## Desarrollo
 
-**键盘快捷键导航**
+```bash
+pnpm install
+pnpm start    # dev con hot reload
+pnpm build    # genera el .xpi en build/
+```
 
-- 键盘↑，上一个书签（跳过折叠内容）
-- 键盘↓，下一个书签（跳过折叠内容）
-- 键盘←或→，展开或折叠节点
-- 空格键，编辑书签内容
-- [，将书签移到上一级（作为原上级节点的下一个相邻节点）
-- ]，将书签移到下一级（自动将相邻的上一个节点作为上级节点）
-- \，创建新节点（默认作为选中节点的子节点）
-- Delete 或 Backspace，删除节点
+Stack: TypeScript + [zotero-plugin-scaffold](https://github.com/windingwind/zotero-plugin-scaffold) (de [windingwind](https://github.com/windingwind)).
 
-## 3. ❤️致谢
+## Atribución y licencia
 
-特别感谢 [jiaojiaodubai](https://github.com/jiaojiaodubai) 同学，长期以来对 [translators_CN](https://github.com/l0o0/translators_CN) 和 本项目 的贡献。
+Este proyecto es un fork del trabajo original de [@l0o0](https://github.com/l0o0) en [l0o0/jasminum](https://github.com/l0o0/jasminum). Todo el código del módulo de outline y bookmarks fue creado por l0o0 y la comunidad de Jasminum. Este fork solo poda el código orientado a la literatura china y traduce la UI.
+
+Distribuido bajo **AGPL-3.0-or-later** (heredada de Jasminum). Ver [LICENSE](LICENSE) y [NOTICE.md](NOTICE.md).
+
+## Estado del proyecto
+
+Versión inicial **v0.1.0** — recién forkeado. Espero issues y PRs.
