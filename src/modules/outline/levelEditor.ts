@@ -16,6 +16,11 @@ import {
   moveNodeDown,
   nestNode,
   unnestNode,
+  addNewNode,
+  deleteSelectedNode,
+  expandAll,
+  collapseAll,
+  makeNodeEditable,
 } from "./events";
 import { ICONS } from "./style";
 
@@ -44,7 +49,7 @@ export async function openLevelEditor(
   const dlg = mainWindow.openDialog(
     `chrome://${config.addonRef}/content/level-editor.xhtml`,
     WINDOW_NAME,
-    "chrome,centerscreen,resizable,width=1000,height=700,dialog=no",
+    "chrome,centerscreen,resizable,width=1100,height=720,dialog=no",
   );
 
   if (!dlg) {
@@ -55,51 +60,106 @@ export async function openLevelEditor(
   let dirty = false;
   const markDirty = () => {
     dirty = true;
+    updateStatusBar(dlg.document);
   };
 
   dlg.addEventListener("load", () => {
     const doc = dlg.document;
 
-    // Localized labels
-    const titleEl = doc.getElementById("le-title-text");
-    if (titleEl) titleEl.textContent = getString("level-editor-title");
-    const saveBtn = doc.getElementById("level-editor-save");
-    if (saveBtn) saveBtn.textContent = getString("level-editor-save");
-    const discardBtn = doc.getElementById("level-editor-discard");
-    if (discardBtn) discardBtn.textContent = getString("level-editor-discard");
-
-    // Inject all the outline CSS rules (tree-list, tree-node, level-N, etc.)
-    // into the modal so the tree looks identical to the sidebar.
+    // Inject the outline CSS rules so .tree-list / .tree-node / level-N
+    // are available; the modal CSS then overrides bullet/indent/font.
     registerOutlineCSS(doc);
     registerThemeChange(dlg);
     updateOutlineFontSize(doc, baseFontSize);
 
+    setupLabels(doc);
+    setupToolbarIcons(doc);
+
     const rootList = doc.getElementById("root-list");
     if (rootList) {
       createTreeNodes(treeData, rootList, doc);
-      injectActionButtons(doc);
+      injectFolderFileIcons(doc);
       // Reuse all tree handlers (drag, drop, keyboard shortcuts, click).
-      // initEventListener depends on #j-outline-viewer + #root-list being in the doc.
       initEventListener(reader, doc);
     }
 
-    // Track edits to ask before discarding
-    rootList?.addEventListener("click", markDirty, { capture: true });
-    rootList?.addEventListener("dragend", markDirty, { capture: true });
-    rootList?.addEventListener("keydown", markDirty, { capture: true });
+    wireToolbar(doc, reader, markDirty);
+    wireKeyboardShortcuts(doc, reader, markDirty, dlg);
 
-    saveBtn?.addEventListener("click", async () => {
-      await persistAndSync(reader, doc);
-      dlg.close();
+    // Track edits to ask before discarding + update toolbar/status
+    rootList?.addEventListener("click", () => {
+      updateToolbarState(doc);
+      updateStatusBar(doc);
     });
+    rootList?.addEventListener("dragend", markDirty);
+    rootList?.addEventListener("keydown", markDirty);
 
-    discardBtn?.addEventListener("click", () => {
-      if (dirty) {
-        const ok = dlg.confirm(getString("level-editor-discard-confirm"));
-        if (!ok) return;
-      }
-      dlg.close();
-    });
+    // Observe DOM mutations to (a) keep folder/file icons on new nodes,
+    // (b) mark dirty, (c) refresh status bar, (d) refresh toolbar state.
+    const observer = new (doc.defaultView as any).MutationObserver(
+      (mutations: MutationRecord[]) => {
+        let touched = false;
+        for (const m of mutations) {
+          if (m.type === "childList" && m.addedNodes.length > 0) {
+            touched = true;
+            m.addedNodes.forEach((n) => {
+              if (!n || (n as Node).nodeType !== 1) return;
+              ensureFolderFileIcon(n as Element, doc);
+              (n as Element)
+                .querySelectorAll<HTMLElement>(".tree-node")
+                .forEach((tn) => ensureFolderFileIcon(tn, doc));
+            });
+          }
+          if (m.type === "childList" && m.removedNodes.length > 0) {
+            touched = true;
+          }
+          if (
+            m.type === "attributes" &&
+            (m.attributeName === "level" || m.attributeName === "class")
+          ) {
+            // Class change may swap has-children — refresh icon
+            const target = m.target as Element;
+            if (target.classList?.contains("tree-item")) {
+              ensureFolderFileIcon(target, doc);
+            }
+          }
+        }
+        if (touched) {
+          dirty = true;
+          updateStatusBar(doc);
+          updateToolbarState(doc);
+        }
+      },
+    );
+    if (rootList) {
+      observer.observe(rootList, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["class", "level"],
+      });
+    }
+
+    // Footer buttons
+    doc
+      .getElementById("level-editor-save")
+      ?.addEventListener("click", async () => {
+        await persistAndSync(reader, doc);
+        dirty = false;
+        dlg.close();
+      });
+    doc
+      .getElementById("level-editor-discard")
+      ?.addEventListener("click", () => {
+        if (dirty) {
+          const ok = dlg.confirm(getString("level-editor-discard-confirm"));
+          if (!ok) return;
+        }
+        dlg.close();
+      });
+
+    updateToolbarState(doc);
+    updateStatusBar(doc);
   });
 
   dlg.addEventListener("unload", () => {
@@ -108,64 +168,295 @@ export async function openLevelEditor(
 }
 
 /**
- * Inject 4 buttons (up / down / nest / unnest) next to every tree-node
- * inside the document. New nodes added later (via drag/drop or keyboard)
- * will be wrapped through a MutationObserver.
+ * Set localized text on title, status, footer buttons, and toolbar button
+ * tooltips. Status text gets filled later by updateStatusBar.
  */
-function injectActionButtons(doc: Document): void {
-  function wrap(treeNode: Element) {
-    if (treeNode.querySelector(".tree-node-actions")) return;
-    const li = treeNode.closest("li") as HTMLLIElement | null;
-    if (!li) return;
-    const span = doc.createElement("span");
-    span.className = "tree-node-actions";
-    span.innerHTML = `
-      <button data-action="up" title="${getString("level-editor-move-up")}">${ICONS.arrowUp}</button>
-      <button data-action="down" title="${getString("level-editor-move-down")}">${ICONS.arrowDown}</button>
-      <button data-action="unnest" title="${getString("level-editor-unnest")}">${ICONS.arrowLeft}</button>
-      <button data-action="nest" title="${getString("level-editor-nest")}">${ICONS.arrowRight}</button>
-    `;
-    span.addEventListener("click", async (ev) => {
-      const btn = (ev.target as HTMLElement).closest("button");
-      if (!btn) return;
-      ev.stopPropagation();
-      const action = btn.getAttribute("data-action");
-      switch (action) {
-        case "up":
-          await moveNodeUp(li);
-          break;
-        case "down":
-          await moveNodeDown(li);
-          break;
-        case "nest":
-          await nestNode(li);
-          break;
-        case "unnest":
-          await unnestNode(li);
-          break;
-      }
+function setupLabels(doc: Document): void {
+  const set = (id: string, text: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  set("le-title-text", getString("level-editor-title"));
+  set("level-editor-save", getString("level-editor-save"));
+  set("level-editor-discard", getString("level-editor-discard"));
+
+  const setTitle = (id: string, text: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.setAttribute("title", text);
+  };
+  setTitle("le-btn-new-sibling", getString("level-editor-new-sibling"));
+  setTitle("le-btn-new-child", getString("level-editor-new-child"));
+  setTitle("le-btn-rename", getString("level-editor-rename"));
+  setTitle("le-btn-delete", getString("level-editor-delete"));
+  setTitle("le-btn-up", getString("level-editor-move-up"));
+  setTitle("le-btn-down", getString("level-editor-move-down"));
+  setTitle("le-btn-nest", getString("level-editor-nest"));
+  setTitle("le-btn-unnest", getString("level-editor-unnest"));
+  setTitle("le-btn-expand-all", getString("level-editor-expand-all"));
+  setTitle("le-btn-collapse-all", getString("level-editor-collapse-all"));
+}
+
+/** Inject SVG icons into each toolbar button. */
+function setupToolbarIcons(doc: Document): void {
+  const icons: Array<[string, string]> = [
+    ["le-btn-new-sibling", ICONS.insertSibling],
+    ["le-btn-new-child", ICONS.insertChild],
+    ["le-btn-rename", ICONS.rename],
+    ["le-btn-delete", ICONS.del],
+    ["le-btn-up", ICONS.arrowUp],
+    ["le-btn-down", ICONS.arrowDown],
+    ["le-btn-nest", ICONS.arrowRight],
+    ["le-btn-unnest", ICONS.arrowLeft],
+    ["le-btn-expand-all", ICONS.expand],
+    ["le-btn-collapse-all", ICONS.collapse],
+  ];
+  for (const [id, svg] of icons) {
+    const el = doc.getElementById(id);
+    if (el) el.innerHTML = svg;
+  }
+}
+
+/** Wire toolbar button clicks to the matching tree operations. */
+function wireToolbar(
+  doc: Document,
+  reader: _ZoteroTypes.ReaderInstance,
+  markDirty: () => void,
+): void {
+  const click = (id: string, fn: (ev: Event) => void | Promise<void>) => {
+    doc.getElementById(id)?.addEventListener("click", async (ev: Event) => {
+      await fn(ev);
+      markDirty();
+      updateToolbarState(doc);
     });
-    treeNode.appendChild(span);
+  };
+
+  click("le-btn-new-sibling", async (ev) => {
+    await addNewNode(ev);
+  });
+  click("le-btn-new-child", async () => {
+    // Simulate "create as child" by selecting first, then triggering ] (nest).
+    // Easier: directly call addNewNode but with a synthetic flag won't work.
+    // Instead: temporarily set the newNodeAsChild pref, call addNewNode, restore.
+    const prevPref = Zotero.Prefs.get(
+      `${config.prefsPrefix}.newNodeAsChild`,
+      true,
+    );
+    Zotero.Prefs.set(`${config.prefsPrefix}.newNodeAsChild`, true, true);
+    try {
+      const fakeEv = new (doc.defaultView as any).Event("click");
+      Object.defineProperty(fakeEv, "target", {
+        value: doc.getElementById("root-list"),
+      });
+      await addNewNode(fakeEv);
+    } finally {
+      Zotero.Prefs.set(
+        `${config.prefsPrefix}.newNodeAsChild`,
+        prevPref as boolean,
+        true,
+      );
+    }
+  });
+  click("le-btn-rename", () => {
+    const selected = doc.querySelector(".node-selected") as HTMLElement | null;
+    if (!selected) return;
+    const titleEl = selected.querySelector(
+      "span.node-title",
+    ) as HTMLElement | null;
+    if (titleEl) makeNodeEditable(titleEl);
+  });
+  click("le-btn-delete", async (ev) => {
+    await deleteSelectedNode(ev);
+  });
+  click("le-btn-up", async () => {
+    const li = getSelectedLi(doc);
+    if (li) await moveNodeUp(li);
+  });
+  click("le-btn-down", async () => {
+    const li = getSelectedLi(doc);
+    if (li) await moveNodeDown(li);
+  });
+  click("le-btn-nest", async () => {
+    const li = getSelectedLi(doc);
+    if (li) await nestNode(li);
+  });
+  click("le-btn-unnest", async () => {
+    const li = getSelectedLi(doc);
+    if (li) await unnestNode(li);
+  });
+  click("le-btn-expand-all", async (ev) => {
+    await expandAll(ev);
+  });
+  click("le-btn-collapse-all", async (ev) => {
+    await collapseAll(ev);
+  });
+}
+
+function getSelectedLi(doc: Document): HTMLLIElement | null {
+  const selected = doc.querySelector(".node-selected");
+  if (!selected) return null;
+  return selected.closest("li.tree-item") as HTMLLIElement | null;
+}
+
+/** Enable / disable toolbar buttons based on current selection state. */
+function updateToolbarState(doc: Document): void {
+  const li = getSelectedLi(doc);
+  const setDisabled = (id: string, disabled: boolean) => {
+    const el = doc.getElementById(id) as HTMLButtonElement | null;
+    if (el) el.disabled = disabled;
+  };
+
+  // Always enabled
+  setDisabled("le-btn-new-sibling", false);
+  setDisabled("le-btn-expand-all", false);
+  setDisabled("le-btn-collapse-all", false);
+
+  // Need a selection
+  const noSel = !li;
+  setDisabled("le-btn-new-child", noSel);
+  setDisabled("le-btn-rename", noSel);
+  setDisabled("le-btn-delete", noSel);
+  if (!li) {
+    setDisabled("le-btn-up", true);
+    setDisabled("le-btn-down", true);
+    setDisabled("le-btn-nest", true);
+    setDisabled("le-btn-unnest", true);
+    return;
   }
 
-  doc.querySelectorAll<HTMLElement>(".tree-node").forEach(wrap);
+  const parent = li.parentElement as HTMLElement | null;
+  const isFirst = !li.previousElementSibling;
+  const isLast = !li.nextElementSibling;
+  const isRoot = parent?.id === "root-list";
 
-  // Pick up new nodes inserted later by the tree-add or drag-drop flows.
+  setDisabled("le-btn-up", isFirst);
+  setDisabled("le-btn-down", isLast);
+  setDisabled("le-btn-nest", isFirst); // can't nest if no prev sibling
+  setDisabled("le-btn-unnest", isRoot);
+}
+
+/** Refresh the "X bookmarks · Y levels · ● modified" status bar text. */
+function updateStatusBar(doc: Document): void {
   const root = doc.getElementById("root-list");
   if (!root) return;
-  const observer = new (doc.defaultView as any).MutationObserver(
-    (mutations: MutationRecord[]) => {
-      for (const m of mutations) {
-        m.addedNodes.forEach((n) => {
-          if (!n || (n as Node).nodeType !== 1) return;
-          const el = n as Element;
-          el.querySelectorAll<HTMLElement>(".tree-node").forEach(wrap);
-          if (el.classList?.contains("tree-node")) wrap(el);
-        });
+  const items = root.querySelectorAll("li.tree-item");
+  const count = items.length;
+  let maxLevel = 0;
+  items.forEach((li) => {
+    const lvl = parseInt(
+      li.querySelector(".tree-node")?.getAttribute("level") || "1",
+      10,
+    );
+    if (lvl > maxLevel) maxLevel = lvl;
+  });
+
+  const countTxt = getString("level-editor-status-count", {
+    args: { count },
+  });
+  const levelsTxt = getString("level-editor-status-levels", {
+    args: { levels: maxLevel },
+  });
+
+  const statusEl = doc.getElementById("le-status");
+  if (statusEl) {
+    statusEl.innerHTML = `${countTxt} · ${levelsTxt}`;
+  }
+}
+
+/** F2 / Insert / Shift+Insert / Delete / Ctrl+S / Esc shortcuts. */
+function wireKeyboardShortcuts(
+  doc: Document,
+  reader: _ZoteroTypes.ReaderInstance,
+  markDirty: () => void,
+  dlg: Window,
+): void {
+  doc.addEventListener(
+    "keydown",
+    async (ev: KeyboardEvent) => {
+      // Ignore when typing inside contenteditable
+      const target = ev.target as HTMLElement;
+      if (
+        target?.getAttribute &&
+        target.getAttribute("contenteditable") === "true"
+      ) {
+        return;
+      }
+
+      if (ev.key === "F2") {
+        ev.preventDefault();
+        const selected = doc.querySelector(
+          ".node-selected",
+        ) as HTMLElement | null;
+        const titleEl = selected?.querySelector(
+          "span.node-title",
+        ) as HTMLElement | null;
+        if (titleEl) makeNodeEditable(titleEl);
+      } else if (ev.key === "Insert" && !ev.shiftKey) {
+        ev.preventDefault();
+        const btn = doc.getElementById("le-btn-new-sibling");
+        btn?.click();
+      } else if (ev.key === "Insert" && ev.shiftKey) {
+        ev.preventDefault();
+        const btn = doc.getElementById("le-btn-new-child");
+        btn?.click();
+      } else if (ev.key === "s" && (ev.ctrlKey || ev.metaKey)) {
+        ev.preventDefault();
+        const btn = doc.getElementById("level-editor-save");
+        btn?.click();
+      } else if (ev.key === "Escape") {
+        ev.preventDefault();
+        const btn = doc.getElementById("level-editor-discard");
+        btn?.click();
       }
     },
+    true,
   );
-  observer.observe(root, { childList: true, subtree: true });
+}
+
+/** Insert a folder/file SVG into every existing .tree-node row. */
+function injectFolderFileIcons(doc: Document): void {
+  doc.querySelectorAll<HTMLElement>(".tree-node").forEach((tn) => {
+    ensureFolderFileIcon(tn, doc);
+  });
+}
+
+/**
+ * Make sure the row has a .node-icon span with the right SVG depending on
+ * whether the parent li has the .has-children class. Idempotent: replaces
+ * the existing icon if the type changed.
+ */
+function ensureFolderFileIcon(el: Element, doc: Document): void {
+  // If passed a <li>, find its child .tree-node
+  let row: HTMLElement | null = null;
+  if (el.classList?.contains("tree-node")) {
+    row = el as HTMLElement;
+  } else if (el.classList?.contains("tree-item")) {
+    row = el.querySelector(":scope > .tree-node");
+  } else {
+    return;
+  }
+  if (!row) return;
+
+  const li = row.closest("li.tree-item");
+  const hasChildren = li?.classList.contains("has-children") ?? false;
+  const wantSvg = hasChildren ? ICONS.folder : ICONS.file;
+
+  let icon = row.querySelector(".node-icon") as HTMLSpanElement | null;
+  if (!icon) {
+    icon = doc.createElement("span");
+    icon.className = "node-icon";
+    // Insert AFTER the expander but BEFORE the title
+    const titleEl = row.querySelector("span.node-title");
+    if (titleEl) {
+      row.insertBefore(icon, titleEl);
+    } else {
+      row.appendChild(icon);
+    }
+  }
+  // Cheap check: tag the icon with the current type to skip re-render
+  if (icon.getAttribute("data-type") === (hasChildren ? "folder" : "file"))
+    return;
+  icon.setAttribute("data-type", hasChildren ? "folder" : "file");
+  icon.innerHTML = wantSvg;
 }
 
 /**
@@ -176,8 +467,6 @@ async function persistAndSync(
   reader: _ZoteroTypes.ReaderInstance,
   modalDoc: Document,
 ): Promise<void> {
-  // Serialize the tree present in the modal document (override of the
-  // page-scoped getOutlineFromPage which assumes a single document).
   const rootList = modalDoc.getElementById("root-list");
   if (!rootList) return;
   const serialize = (ul: Element): OutlineNode[] => {

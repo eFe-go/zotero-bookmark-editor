@@ -1,6 +1,6 @@
 {
   "name": "zotero-bookmark-editor",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Editor de marcadores (outline) editables para PDFs en Zotero. Escribe los bookmarks dentro del archivo PDF usando pdf-lib (estandar /Outlines).",
   "config": {
     "addonName": "Bookmark Editor",

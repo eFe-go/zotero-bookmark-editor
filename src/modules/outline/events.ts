@@ -246,7 +246,7 @@ export function initEventListener(
 }
 
 // 为节点添加事件监听，以下为事件处理函数
-async function expandAll(ev: Event) {
+export async function expandAll(ev: Event) {
   const doc = (ev.target as Element).ownerDocument;
   const collapsedNodes = doc.querySelectorAll(".tree-item.collapsed");
   collapsedNodes.forEach((node) => {
@@ -261,7 +261,7 @@ async function expandAll(ev: Event) {
   await saveOutlineToJSON();
 }
 
-async function collapseAll(ev: Event) {
+export async function collapseAll(ev: Event) {
   const doc = (ev.target as Element).ownerDocument;
   const parentNodes = doc.querySelectorAll(".tree-item.has-children");
   parentNodes.forEach((node) => {
