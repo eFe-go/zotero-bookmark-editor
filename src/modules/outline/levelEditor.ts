@@ -107,7 +107,13 @@ export async function openLevelEditor(
               ensureFolderFileIcon(n as Element, doc);
               (n as Element)
                 .querySelectorAll<HTMLElement>(".tree-node")
-                .forEach((tn) => ensureFolderFileIcon(tn, doc));
+                .forEach((tn) => {
+                  ensureFolderFileIcon(tn, doc);
+                  ensurePageNumber(tn, doc);
+                });
+              if ((n as Element).classList?.contains("tree-node")) {
+                ensurePageNumber(n as HTMLElement, doc);
+              }
             });
           }
           if (m.type === "childList" && m.removedNodes.length > 0) {
@@ -412,11 +418,29 @@ function wireKeyboardShortcuts(
   );
 }
 
-/** Insert a folder/file SVG into every existing .tree-node row. */
+/** Insert a folder/file SVG and page number into every existing row. */
 function injectFolderFileIcons(doc: Document): void {
   doc.querySelectorAll<HTMLElement>(".tree-node").forEach((tn) => {
     ensureFolderFileIcon(tn, doc);
+    ensurePageNumber(tn, doc);
   });
+}
+
+/** Append a "p.NN" span at the right side of the row showing the page. */
+function ensurePageNumber(row: HTMLElement, doc: Document): void {
+  if (!row.classList?.contains("tree-node")) return;
+  const page = row.getAttribute("page");
+  if (!page) return;
+  let pageEl = row.querySelector(":scope > .node-page") as HTMLSpanElement | null;
+  const text = `p.${page}`;
+  if (!pageEl) {
+    pageEl = doc.createElement("span");
+    pageEl.className = "node-page";
+    pageEl.textContent = text;
+    row.appendChild(pageEl);
+  } else if (pageEl.textContent !== text) {
+    pageEl.textContent = text;
+  }
 }
 
 /**
@@ -440,15 +464,26 @@ function ensureFolderFileIcon(el: Element, doc: Document): void {
   const hasChildren = li?.classList.contains("has-children") ?? false;
   const wantSvg = hasChildren ? ICONS.folder : ICONS.file;
 
-  let icon = row.querySelector(".node-icon") as HTMLSpanElement | null;
+  let icon = row.querySelector(":scope > .node-icon") as HTMLSpanElement | null;
   if (!icon) {
     icon = doc.createElement("span");
     icon.className = "node-icon";
-    // Insert AFTER the expander but BEFORE the title
+    // Insert AFTER the expander but BEFORE the node-content / node-title.
+    // The DOM is tree-node > [expander, node-content > node-title], so we
+    // anchor on whatever direct child of tree-node holds the title.
     const titleEl = row.querySelector("span.node-title");
-    if (titleEl) {
-      row.insertBefore(icon, titleEl);
-    } else {
+    const anchor =
+      titleEl && titleEl.parentNode && titleEl.parentNode !== row
+        ? (titleEl.parentNode as Element)
+        : titleEl;
+    try {
+      if (anchor && anchor.parentNode === row) {
+        row.insertBefore(icon, anchor);
+      } else {
+        // Fallback: append at the end, the CSS still aligns it via flex.
+        row.appendChild(icon);
+      }
+    } catch (_e) {
       row.appendChild(icon);
     }
   }
