@@ -1,7 +1,9 @@
 import {
   saveOutlineToJSON,
+  loadOutlineFromJSON,
   createTreeNodes,
   getOutlineFromPDF,
+  importEmbeddedOutline,
   updateOutlineFontSize,
   loadOutlineInfoFromJSON,
   DEFAULT_BASE_FONT_SIZE,
@@ -168,6 +170,19 @@ export function initEventListener(
       button.disabled = true;
       await addOutlineToPDFRunner();
       button.disabled = false;
+    });
+  doc
+    .getElementById("j-outline-import-pdf")
+    ?.addEventListener("click", async (ev: Event) => {
+      const button = ev.currentTarget as HTMLButtonElement;
+      button.disabled = true;
+      await importEmbeddedOutlineRunner(reader, doc);
+      button.disabled = false;
+    });
+  doc
+    .getElementById("j-outline-open-editor")
+    ?.addEventListener("click", async () => {
+      await openLevelEditorRunner(reader);
     });
 
   // 拖拽相关事件
@@ -343,60 +358,19 @@ export async function handleKeydownEvent(ev: KeyboardEvent) {
 
   // Level up
   if (ev.key === "[") {
-    // ztoolkit.log("[ key pressed");
     const targetNode = (ev.target as Element).querySelector<Element>(
       ".node-selected",
-    )!;
-    const targetLi = targetNode.closest("li")!;
-    const oldParentUl = targetLi.parentElement!;
-    const oldGrandParent = oldParentUl.parentElement!;
-    // 如果是根节点，直接返回
-    if (oldParentUl.id === "root-list") return;
-    oldParentUl.removeChild(targetLi);
-    // 此时原来的父节点已经没有子节点了，删除
-    if (oldParentUl.children.length === 0) {
-      oldGrandParent.removeChild(oldParentUl);
-      oldGrandParent.classList.remove("has-children");
-      const expander = oldGrandParent.querySelector(".expander")!;
-      expander.textContent = " ";
-    }
-    oldGrandParent.parentElement!.insertBefore(
-      targetLi,
-      oldGrandParent.nextSibling,
     );
-    updateNodeLevels(targetLi);
-    await saveOutlineToJSON();
+    if (!targetNode) return;
+    await unnestNode(targetNode.closest("li") as HTMLLIElement);
   }
   // Level down
   if (ev.key === "]") {
-    // ztoolkit.log("] key pressed");
     const targetNode = (ev.target as Element).querySelector<Element>(
       ".node-selected",
-    )!;
-    const targetLi = targetNode.closest("li")!;
-    const parentLi = targetLi.previousElementSibling;
-    if (!parentLi) return;
-    let parentUl = parentLi.querySelector("ul");
-
-    // 如果没有子列表，创建一个
-    if (!parentUl) {
-      parentUl = targetNode.ownerDocument.createElement("ul");
-      parentUl.classList.add("tree-list");
-      parentLi.appendChild(parentUl);
-
-      // 更新父节点状态
-      parentLi.classList.add("has-children");
-      const expander = parentLi.querySelector(".expander")!;
-      // expander.textContent = "▼";
-      expander.innerHTML = ICONS.down;
-    }
-    // 添加到子列表
-    parentUl.appendChild(targetLi);
-    // 确保目标节点展开
-    targetLi.classList.remove("collapsed");
-
-    updateNodeLevels(targetLi);
-    await saveOutlineToJSON();
+    );
+    if (!targetNode) return;
+    await nestNode(targetNode.closest("li") as HTMLLIElement);
   }
 
   // Add new node
@@ -710,6 +684,64 @@ function updateNodeLevels(node: Element) {
   }
 
   updateLevel(node, level);
+}
+
+// Outdent a node: move it from its current UL parent to be a sibling
+// of the old grandparent. No-op if already at root level.
+export async function unnestNode(targetLi: HTMLLIElement): Promise<void> {
+  const oldParentUl = targetLi.parentElement;
+  if (!oldParentUl || oldParentUl.id === "root-list") return;
+  const oldGrandParent = oldParentUl.parentElement;
+  if (!oldGrandParent) return;
+  oldParentUl.removeChild(targetLi);
+  if (oldParentUl.children.length === 0) {
+    oldGrandParent.removeChild(oldParentUl);
+    oldGrandParent.classList.remove("has-children");
+    const expander = oldGrandParent.querySelector(".expander");
+    if (expander) expander.textContent = " ";
+  }
+  oldGrandParent.parentElement!.insertBefore(
+    targetLi,
+    oldGrandParent.nextSibling,
+  );
+  updateNodeLevels(targetLi);
+  await saveOutlineToJSON();
+}
+
+// Indent a node: nest it under the immediately preceding sibling.
+// No-op if it is the first child of its UL.
+export async function nestNode(targetLi: HTMLLIElement): Promise<void> {
+  const parentLi = targetLi.previousElementSibling;
+  if (!parentLi) return;
+  let parentUl = parentLi.querySelector(":scope > ul");
+  if (!parentUl) {
+    parentUl = targetLi.ownerDocument.createElement("ul");
+    parentUl.classList.add("tree-list");
+    parentLi.appendChild(parentUl);
+    parentLi.classList.add("has-children");
+    const expander = parentLi.querySelector(".expander");
+    if (expander) expander.innerHTML = ICONS.down;
+  }
+  parentUl.appendChild(targetLi);
+  targetLi.classList.remove("collapsed");
+  updateNodeLevels(targetLi);
+  await saveOutlineToJSON();
+}
+
+// Swap this LI with its previous sibling (move up among siblings).
+export async function moveNodeUp(targetLi: HTMLLIElement): Promise<void> {
+  const prev = targetLi.previousElementSibling;
+  if (!prev) return;
+  targetLi.parentElement!.insertBefore(targetLi, prev);
+  await saveOutlineToJSON();
+}
+
+// Swap this LI with its next sibling (move down among siblings).
+export async function moveNodeDown(targetLi: HTMLLIElement): Promise<void> {
+  const next = targetLi.nextElementSibling;
+  if (!next) return;
+  targetLi.parentElement!.insertBefore(next, targetLi);
+  await saveOutlineToJSON();
 }
 
 export function makeNodeEditable(titleElement: Element) {
@@ -1463,4 +1495,40 @@ async function handleFontSizeDecrease(ev: Event) {
       `Font size decreased: outline=${newOutlineSize}px, bookmark=${newBookmarkSize}px`,
     );
   }
+}
+
+// Import embedded /Outlines from the PDF into the sidebar.
+// Prompts before overwriting existing JSON cache.
+export async function importEmbeddedOutlineRunner(
+  reader: _ZoteroTypes.ReaderInstance,
+  doc: Document,
+): Promise<void> {
+  const win = doc.defaultView!;
+  const existing = await loadOutlineFromJSON(reader._item);
+  if (existing && existing.length > 0) {
+    const ok = win.confirm(getString("outline-import-pdf-confirm"));
+    if (!ok) return;
+  }
+  const imported = await importEmbeddedOutline(reader);
+  if (!imported || imported.length === 0) {
+    win.alert(getString("outline-import-pdf-no-outline"));
+    return;
+  }
+  // Re-render the sidebar tree with the new data.
+  const rootList = doc.getElementById("root-list");
+  if (rootList) {
+    rootList.innerHTML = "";
+    createTreeNodes(imported, rootList, doc);
+  }
+  doc.querySelector(".empty-outline-prompt")?.classList.add("hidden");
+  ztoolkit.log(`Imported ${imported.length} bookmarks from PDF`);
+}
+
+// Open the standalone level editor window.
+// Lazy import to avoid pulling level-editor code into the worker chunk.
+export async function openLevelEditorRunner(
+  reader: _ZoteroTypes.ReaderInstance,
+): Promise<void> {
+  const { openLevelEditor } = await import("./levelEditor");
+  await openLevelEditor(reader);
 }

@@ -10,6 +10,12 @@ export const ICONS = {
   right: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 2 20 20"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" color="currentColor"><path d="M10.5 8s3 2.946 3 4s-3 4-3 4"/></g></svg>`,
   plus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M4.194 14.867L2.881 18.16q-.067.157-.189.249q-.12.091-.296.091q-.288 0-.443-.228t-.051-.49l4.9-11.994q.048-.119.16-.204t.242-.084h.357q.149 0 .254.084q.104.085.152.204l4.887 11.943q.104.28-.063.525q-.167.244-.452.244q-.173 0-.322-.097q-.15-.098-.211-.268l-1.308-3.268zm.36-.967h5.584l-2.71-6.8h-.132zm13.83-1.4h-2.5q-.212 0-.356-.144t-.143-.357t.143-.356t.357-.143h2.5V9q0-.213.143-.356t.357-.144t.356.144t.144.356v2.5h2.5q.212 0 .356.144t.143.357t-.143.356t-.357.143h-2.5V15q0 .213-.143.356q-.144.144-.357.144t-.356-.144t-.144-.356z" /></svg>`,
   minus: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="m1.616 18.5l5.288-13h.962l5.288 13h-1.208l-1.448-3.633H4.194L2.746 18.5zm2.938-4.6h5.584L7.436 7.1h-.139zm10.83-1.4v-1h7v1z" /></svg>`,
+  importPdf: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M5 20h14v-2H5zM19 9h-4V3H9v6H5l7 7z"/></svg>`,
+  openEditor: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83l1.41 1.41L19 6.41V10h2V3z"/></svg>`,
+  arrowUp: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6l-6 6z"/></svg>`,
+  arrowDown: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6l-6-6z"/></svg>`,
+  arrowLeft: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M14 7l-5 5l5 5V7z"/></svg>`,
+  arrowRight: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M10 17l5-5l-5-5v10z"/></svg>`,
 };
 
 export const outline_css = `

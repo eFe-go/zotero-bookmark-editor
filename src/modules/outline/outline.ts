@@ -140,16 +140,48 @@ export function addButton(doc: Document) {
   );
 }
 
-// 有 JSON 文件优先读取JSON文件
-// 然后再获取PDF自带书签
-export async function getOutlineFromPDF(
+// Helper: convierte la estructura cruda de pdf.js (PdfOutlineNode con location dest/position)
+// al formato editable OutlineNode usado en todo el plugin.
+async function convertPdfOutlineToNodes(
+  originOutline: PdfOutlineNode[],
+  pdfDocument: any,
+): Promise<OutlineNode[]> {
+  async function convert(
+    node: PdfOutlineNode,
+    level = 0,
+  ): Promise<OutlineNode> {
+    level += 1;
+    const outlineNode: OutlineNode = {
+      level,
+      title: node.title,
+      page: 1,
+      x: 100,
+      y: 100,
+      children: [],
+    };
+    if (node.location && "dest" in node.location) {
+      // @ts-ignore - Not typed
+      const page = await pdfDocument.getPageIndex(node.location.dest);
+      outlineNode.page = page;
+    } else if (node.location && "position" in node.location) {
+      outlineNode.page = node.location.position.pageIndex + 1;
+      outlineNode.x = node.location.position.rects[0][0];
+      outlineNode.y = node.location.position.rects[0][1];
+    }
+    if (node.items.length > 0) {
+      outlineNode.children = await Promise.all(
+        node.items.map((n) => convert(n, level)),
+      );
+    }
+    return outlineNode;
+  }
+  return Promise.all(originOutline.map((node) => convert(node, 0)));
+}
+
+// Helper: espera a que PDFViewerApplication este listo y devuelve el pdfDocument.
+async function waitForPdfDocument(
   reader: _ZoteroTypes.ReaderInstance,
-): Promise<OutlineNode[] | null> {
-  const item = reader._item;
-  // 优先从JSON缓存中读取书签信息
-  const outlineJson = await loadOutlineFromJSON(item);
-  if (outlineJson) return outlineJson;
-  // 如果上面没有返回Outline信息，重新读取
+): Promise<any | null> {
   await wait.waitUtilAsync(
     () => {
       return (reader._primaryView as _ZoteroTypes.Reader.PDFView)
@@ -162,58 +194,45 @@ export async function getOutlineFromPDF(
     200,
     5000,
   );
-  ztoolkit.log("PDFViewerApplication is ready");
   const PDFViewerApplication = (
     reader._primaryView as _ZoteroTypes.Reader.PDFView
   )._iframeWindow!.PDFViewerApplication;
   await PDFViewerApplication.init;
-  const pdfDocument = PDFViewerApplication.pdfDocument;
+  return PDFViewerApplication.pdfDocument ?? null;
+}
+
+// JSON cache tiene prioridad; si no hay, lee el outline embebido del PDF.
+export async function getOutlineFromPDF(
+  reader: _ZoteroTypes.ReaderInstance,
+): Promise<OutlineNode[] | null> {
+  const item = reader._item;
+  const outlineJson = await loadOutlineFromJSON(item);
+  if (outlineJson) return outlineJson;
+  const pdfDocument = await waitForPdfDocument(reader);
   if (!pdfDocument) {
     ztoolkit.log("No pdfDocument");
     return null;
   }
   // @ts-ignore - Not typed
   const originOutline: PdfOutlineNode[] = await pdfDocument.getOutline2();
-
   if (originOutline.length == 0) return null;
-  ztoolkit.log(originOutline);
-  async function convert(
-    node: PdfOutlineNode,
-    level = 0,
-  ): Promise<OutlineNode> {
-    level += 1;
-    const title = node.title;
-    // Default position
-    const outlineNode: OutlineNode = {
-      level,
-      title,
-      page: 1,
-      x: 100,
-      y: 100,
-      children: [],
-    };
-    // Some pdf missing dest, position instead.
-    if (node.location && "dest" in node.location) {
-      // @ts-ignore - Not typed
-      const page = await pdfDocument.getPageIndex(node.location.dest);
-      outlineNode.page = page;
-    } else if (node.location && "position" in node.location) {
-      outlineNode.page = node.location.position.pageIndex + 1;
-      outlineNode.x = node.location.position.rects[0][0];
-      outlineNode.y = node.location.position.rects[0][1];
-    }
-
-    if (node.items.length > 0) {
-      outlineNode.children = await Promise.all(
-        node.items.map((n) => convert(n, level)),
-      );
-    }
-    return outlineNode;
-  }
-  const outline = await Promise.all(
-    originOutline.map((node) => convert(node, 0)),
-  );
+  const outline = await convertPdfOutlineToNodes(originOutline, pdfDocument);
   await saveOutlineToJSON(item, outline);
+  return outline;
+}
+
+// Reimporta los bookmarks embebidos en el PDF, ignorando el JSON cache.
+// Devuelve la cantidad de bookmarks importados o null si el PDF no tiene.
+export async function importEmbeddedOutline(
+  reader: _ZoteroTypes.ReaderInstance,
+): Promise<OutlineNode[] | null> {
+  const pdfDocument = await waitForPdfDocument(reader);
+  if (!pdfDocument) return null;
+  // @ts-ignore - Not typed
+  const originOutline: PdfOutlineNode[] = await pdfDocument.getOutline2();
+  if (originOutline.length === 0) return null;
+  const outline = await convertPdfOutlineToNodes(originOutline, pdfDocument);
+  await saveOutlineToJSON(reader._item, outline);
   return outline;
 }
 

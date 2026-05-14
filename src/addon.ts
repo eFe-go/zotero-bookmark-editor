@@ -18,6 +18,7 @@ class Addon {
       window: Window;
     };
     windows: Record<string, Window>;
+    levelEditorOpen?: boolean;
   };
   public hooks: typeof hooks;
   public api: AddonAPI;

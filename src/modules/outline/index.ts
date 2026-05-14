@@ -65,10 +65,24 @@ export function renderTree(
       },
       {
         tag: "button",
+        id: "j-outline-import-pdf",
+        classList: ["j-outline-toolbar-button", "toolbar-button"],
+        properties: { innerHTML: ICONS.importPdf },
+        attributes: { title: getString("outline-import-pdf") },
+      },
+      {
+        tag: "button",
         id: "j-outline-save-pdf",
         classList: ["j-outline-toolbar-button", "toolbar-button"],
         properties: { innerHTML: ICONS.save },
         attributes: { title: getString("outline-save-to-pdf") },
+      },
+      {
+        tag: "button",
+        id: "j-outline-open-editor",
+        classList: ["j-outline-toolbar-button", "toolbar-button"],
+        properties: { innerHTML: ICONS.openEditor },
+        attributes: { title: getString("outline-open-editor") },
       },
     ],
   });
