@@ -7,25 +7,6 @@
 declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
-      "firstRun": boolean;
-      "translatorsMended": boolean;
-      "autoSplitName": boolean;
-      "splitEnName": boolean;
-      "language": string;
-      "autoUpdateMetadata": boolean;
-      "namePattern": string;
-      "namePatternCustom": string;
-      "metadataSource": string;
-      "isMainlandChina": boolean;
-      "cnkiAttachmentCookie": string;
-      "similarityThresholdForMetaData": string;
-      "pdfMatchFolder": string;
-      "actionAfterAttachmentImport": string;
-      "similarityThreshold": string;
-      "topMatchCount": number;
-      "autoUpdateTranslators": boolean;
-      "translatorUpdateTime": string;
-      "translatorSource": string;
       "enableBookmark": boolean;
       "newNodeAsChild": boolean;
       "disableZoteroOutline": boolean;

@@ -6,19 +6,7 @@ import {
   initPrefs,
 } from "./modules/preferences/main";
 import { createZToolkit } from "./utils/ztoolkit";
-import { registerMenu } from "./modules/menu";
-import {
-  registerExtraColumnWithCustomCell,
-  registerNotifiers,
-  registerTab,
-} from "./modules/notifier";
-import { injectStylesLink } from "./modules/styles";
-import { updateTranslators } from "./modules/translators";
-import { getPref } from "./utils/prefs";
-import {
-  registerHeadlessActor,
-  unregisterHeadlessActor,
-} from "./utils/headlessBrowser";
+import { registerTab } from "./modules/notifier";
 
 async function onStartup() {
   await Promise.all([
@@ -28,19 +16,11 @@ async function onStartup() {
   ]);
 
   initLocale();
-  ztoolkit.log("Jasminum.onStartup: begin");
-  registerHeadlessActor();
+  ztoolkit.log("BookmarkEditor.onStartup: begin");
 
   registerPrefsPane();
   initPrefs();
-
-  registerNotifiers();
-
-  registerMenu();
   registerTab();
-  await registerExtraColumnWithCustomCell();
-
-  injectStylesLink();
 
   // @ts-ignore - Not typed.
   await Zotero.Promise.delay(1000);
@@ -49,33 +29,16 @@ async function onStartup() {
   );
 }
 
-async function onMainWindowLoad(win: Window): Promise<void> {
-  // Create ztoolkit for every window
+async function onMainWindowLoad(_win: Window): Promise<void> {
   addon.data.ztoolkit = createZToolkit();
-
-  // @ts-ignore - Not typed.
-  await Zotero.Promise.delay(1000);
-
-  if (getPref("autoUpdateTranslators")) {
-    // @ts-ignore - Not typed.
-    await Zotero.Promise.delay(10000);
-    ztoolkit.log("auto update translators");
-    updateTranslators();
-  }
 }
 
 function onShutdown(): void {
-  unregisterHeadlessActor();
   ztoolkit.unregisterAll();
-  // Remove addon object
   addon.data.alive = false;
   // @ts-ignore - Plugin instance is not typed
   delete Zotero[config.addonInstance];
 }
-
-// Add your hooks here. For element click, etc.
-// Keep in mind hooks only do dispatch. Don't add code that does real jobs in hooks.
-// Otherwise the code would be hard to read and maintain.
 
 export default {
   onStartup,
