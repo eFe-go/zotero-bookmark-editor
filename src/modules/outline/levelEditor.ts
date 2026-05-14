@@ -79,6 +79,7 @@ export async function openLevelEditor(
     if (rootList) {
       createTreeNodes(treeData, rootList, doc);
       injectFolderFileIcons(doc);
+      ensureDropIndicator(doc);
       // Reuse all tree handlers (drag, drop, keyboard shortcuts, click).
       initEventListener(reader, doc);
     }
@@ -416,6 +417,20 @@ function wireKeyboardShortcuts(
     },
     true,
   );
+}
+
+/**
+ * The sidebar renderTree() creates a div.drop-indicator that handleDragOver
+ * / hideDropIndicator look for via doc.querySelector(".drop-indicator").
+ * The modal uses createTreeNodes() directly, so we must inject one ourselves
+ * — otherwise every dragover throws "dropIndicator is null".
+ */
+function ensureDropIndicator(doc: Document): void {
+  if (doc.querySelector(".drop-indicator")) return;
+  const indicator = doc.createElement("div");
+  indicator.classList.add("drop-indicator");
+  const viewer = doc.getElementById("j-outline-viewer");
+  (viewer ?? doc.body).appendChild(indicator);
 }
 
 /** Insert a folder/file SVG and page number into every existing row. */
