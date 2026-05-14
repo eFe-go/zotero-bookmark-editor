@@ -55,7 +55,7 @@ type BookmarkInfo = {
   info: {
     itemID: number;
     schema: number;
-    jasminumVersion: string;
+    pluginVersion: string;
     baseFontSize?: number; // outline 12, bookmark 13
   };
   bookmarks: BookmarkNode[];

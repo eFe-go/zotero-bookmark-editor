@@ -25,7 +25,7 @@ export function registerOutlineCSS(doc: Document) {
 
 // Update font size dynamically based on baseFontSize
 export function updateOutlineFontSize(doc: Document, baseFontSize: number) {
-  const styleId = "jasminum-dynamic-font-size";
+  const styleId = "bookmark-editor-dynamic-font-size";
   let styleElement = doc.getElementById(styleId) as HTMLStyleElement;
 
   if (!styleElement) {
@@ -271,7 +271,7 @@ export async function saveOutlineToJSON(
     info: {
       itemID: item.id,
       schema: OUTLINE_SCHEMA,
-      jasminumVersion: version,
+      pluginVersion: version,
       baseFontSize: baseFontSize,
     },
     outline: outline,
@@ -281,7 +281,7 @@ export async function saveOutlineToJSON(
     Zotero.DataDirectory.dir,
     "storage",
     item.key,
-    "jasminum-outline.json",
+    "bookmark-editor-outline.json",
   );
   await Zotero.File.putContentsAsync(outlinePath, outlineStr);
   ztoolkit.log("Save outline to JSON");
@@ -312,7 +312,7 @@ export async function loadOutlineInfoFromJSON(
     Zotero.DataDirectory.dir,
     "storage",
     item.key,
-    "jasminum-outline.json",
+    "bookmark-editor-outline.json",
   );
   const isFileExist = await IOUtils.exists(outlinePath);
   if (!isFileExist) {

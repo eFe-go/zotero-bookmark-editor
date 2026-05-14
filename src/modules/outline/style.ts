@@ -441,7 +441,7 @@ button:hover.j-bookmark-toolbar-button {
 }
 
 /* 底部功能栏 */
-.jasminum-sidebar-bottom {
+.bookmark-editor-sidebar-bottom {
   padding: 8px 8px;
   border-top: var(--material-panedivider);
   z-index: 1;

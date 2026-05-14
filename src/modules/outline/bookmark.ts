@@ -92,7 +92,7 @@ export async function saveBookmarksToJSON(
     info: {
       itemID: item.id,
       schema: BOOKMARK_SCHEMA,
-      jasminumVersion: version,
+      pluginVersion: version,
       baseFontSize: baseFontSize,
     },
     bookmarks: bookmarks,
@@ -102,7 +102,7 @@ export async function saveBookmarksToJSON(
     Zotero.DataDirectory.dir,
     "storage",
     item.key,
-    "jasminum-bookmarks.json",
+    "bookmark-editor-bookmarks.json",
   );
   await Zotero.File.putContentsAsync(bookmarkPath, bookmarkStr);
   ztoolkit.log("Save bookmarks to JSON");
@@ -115,7 +115,7 @@ export async function loadBookmarkInfoFromJSON(
     Zotero.DataDirectory.dir,
     "storage",
     item.key,
-    "jasminum-bookmarks.json",
+    "bookmark-editor-bookmarks.json",
   );
   const isFileExist = await IOUtils.exists(bookmarkPath);
   if (!isFileExist) {
@@ -310,7 +310,7 @@ export function addBookmarkButton(doc: Document) {
 
 // Update bookmark font size dynamically
 export function updateBookmarkFontSize(doc: Document, baseFontSize: number) {
-  const styleId = "jasminum-bookmark-dynamic-font-size";
+  const styleId = "bookmark-editor-bookmark-dynamic-font-size";
   let styleElement = doc.getElementById(styleId) as HTMLStyleElement;
 
   if (!styleElement) {

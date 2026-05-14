@@ -62,10 +62,10 @@ export function initEventListener(
 
     // Enable j outline view
     if (button.id === "j-outline-button") {
-      ztoolkit.log("jasminum show outline");
-      reader.setSidebarView("jasminum-outline");
-      doc.getElementById("jasminum-outline")?.classList.remove("hidden");
-      doc.getElementById("jasminum-bookmarks")?.classList.add("hidden");
+      ztoolkit.log("bookmark-editor show outline");
+      reader.setSidebarView("bookmark-editor-outline");
+      doc.getElementById("bookmark-editor-outline")?.classList.remove("hidden");
+      doc.getElementById("bookmark-editor-bookmarks")?.classList.add("hidden");
       doc
         .getElementById("j-outline-toolbar")
         ?.classList.toggle("j-hidden", false);
@@ -77,10 +77,10 @@ export function initEventListener(
         .getElementById("j-bookmark-button")
         ?.classList.toggle("active", false);
     } else if (button.id === "j-bookmark-button") {
-      ztoolkit.log("jasminum show bookmark");
-      reader.setSidebarView("jasminum-bookmarks");
-      doc.getElementById("jasminum-bookmarks")?.classList.remove("hidden");
-      doc.getElementById("jasminum-outline")?.classList.add("hidden");
+      ztoolkit.log("bookmark-editor show bookmark");
+      reader.setSidebarView("bookmark-editor-bookmarks");
+      doc.getElementById("bookmark-editor-bookmarks")?.classList.remove("hidden");
+      doc.getElementById("bookmark-editor-outline")?.classList.add("hidden");
       doc
         .getElementById("j-bookmark-toolbar")
         ?.classList.toggle("j-hidden", false);
@@ -91,10 +91,10 @@ export function initEventListener(
       doc.getElementById("j-outline-button")?.classList.toggle("active", false);
     } else {
       // Hide both outline and bookmark views
-      ztoolkit.log("hide jasminum views");
-      doc.getElementById("jasminum-outline")?.classList.toggle("hidden", true);
+      ztoolkit.log("hide bookmark-editor views");
+      doc.getElementById("bookmark-editor-outline")?.classList.toggle("hidden", true);
       doc
-        .getElementById("jasminum-bookmarks")
+        .getElementById("bookmark-editor-bookmarks")
         ?.classList.toggle("hidden", true);
       doc
         .getElementById("j-outline-toolbar")
@@ -967,7 +967,7 @@ export async function addOutlineToPDFRunner(): Promise<void> {
   }
   const filePath = reader._item.getFilePath();
   const worker = new Worker(
-    "chrome://jasminum/content/scripts/jasminum-worker.js",
+    "chrome://bookmark-editor/content/scripts/bookmark-editor-worker.js",
   );
   worker.onmessage = (event) => {
     // @ts-ignore - event.data is not typed

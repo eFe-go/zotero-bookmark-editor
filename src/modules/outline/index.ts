@@ -73,7 +73,7 @@ export function renderTree(
     ],
   });
   const treeContainer = ztoolkit.UI.createElement(doc, "div", {
-    id: "jasminum-outline",
+    id: "bookmark-editor-outline",
     classList: ["hidden"], // 默认隐藏
     namespace: "html",
     children: [
@@ -100,7 +100,7 @@ export function renderTree(
       {
         tag: "div",
         namespace: "html",
-        classList: ["jasminum-sidebar-bottom"],
+        classList: ["bookmark-editor-sidebar-bottom"],
         children: [
           {
             tag: "button",
@@ -169,7 +169,7 @@ export function renderBookmarkTree(
     ],
   });
   const bookmarkContainer = ztoolkit.UI.createElement(doc, "div", {
-    id: "jasminum-bookmarks",
+    id: "bookmark-editor-bookmarks",
     classList: ["hidden"], // 默认隐藏
     namespace: "html",
     children: [
