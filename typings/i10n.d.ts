@@ -8,6 +8,7 @@ export type FluentMessageId =
   | 'bookmark-delete'
   | 'label-disableZoteroOutline'
   | 'label-enableBookmark'
+  | 'label-newNodeAsChild'
   | 'outline'
   | 'outline-add'
   | 'outline-collapse-all'
