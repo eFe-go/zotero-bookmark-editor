@@ -86,6 +86,7 @@ export async function openLevelEditor(
 
     wireToolbar(doc, reader, markDirty);
     wireKeyboardShortcuts(doc, reader, markDirty, dlg);
+    wireContextMenu(doc, markDirty);
 
     // Track edits to ask before discarding + update toolbar/status
     rootList?.addEventListener("click", () => {
@@ -431,6 +432,155 @@ function ensureDropIndicator(doc: Document): void {
   indicator.classList.add("drop-indicator");
   const viewer = doc.getElementById("j-outline-viewer");
   (viewer ?? doc.body).appendChild(indicator);
+}
+
+/**
+ * Right-click on any row opens a context menu mirroring the toolbar
+ * actions. Items get enabled/disabled per the same logic as the toolbar.
+ */
+function wireContextMenu(doc: Document, markDirty: () => void): void {
+  const menu = doc.getElementById("le-context-menu");
+  if (!menu) return;
+
+  // Populate labels + icons once
+  const items: Array<[string, string, string]> = [
+    ["rename", "level-editor-rename", ICONS.rename],
+    ["delete", "level-editor-delete", ICONS.del],
+    ["new-sibling", "level-editor-new-sibling", ICONS.insertSibling],
+    ["new-child", "level-editor-new-child", ICONS.insertChild],
+    ["up", "level-editor-move-up", ICONS.arrowUp],
+    ["down", "level-editor-move-down", ICONS.arrowDown],
+    ["nest", "level-editor-nest", ICONS.arrowRight],
+    ["unnest", "level-editor-unnest", ICONS.arrowLeft],
+    ["expand-all", "level-editor-expand-all", ICONS.expand],
+    ["collapse-all", "level-editor-collapse-all", ICONS.collapse],
+  ];
+  for (const [action, key, svg] of items) {
+    const el = menu.querySelector(
+      `.le-menu-item[data-action="${action}"]`,
+    ) as HTMLElement | null;
+    if (!el) continue;
+    const label = el.querySelector(".le-menu-label") as HTMLElement | null;
+    const icon = el.querySelector(".le-menu-icon") as HTMLElement | null;
+    if (label) label.textContent = getString(key);
+    if (icon) icon.innerHTML = svg;
+  }
+
+  const hide = () => {
+    menu.classList.remove("visible");
+  };
+
+  // Show on right-click inside the tree
+  const rootList = doc.getElementById("root-list");
+  rootList?.addEventListener("contextmenu", (ev: Event) => {
+    ev.preventDefault();
+    const mouseEv = ev as MouseEvent;
+    const targetRow = (mouseEv.target as Element).closest(
+      ".tree-node",
+    ) as HTMLElement | null;
+    if (targetRow) {
+      // Select the right-clicked row before showing the menu
+      doc
+        .querySelectorAll(".node-selected")
+        .forEach((n) => n.classList.remove("node-selected"));
+      targetRow.classList.add("node-selected");
+      updateToolbarState(doc);
+    }
+    // Position the menu at the cursor, clamping to viewport
+    const win = doc.defaultView!;
+    const x = Math.min(
+      mouseEv.clientX,
+      win.innerWidth - menu.offsetWidth - 8 || mouseEv.clientX,
+    );
+    const y = Math.min(
+      mouseEv.clientY,
+      win.innerHeight - menu.offsetHeight - 8 || mouseEv.clientY,
+    );
+    (menu as HTMLElement).style.left = `${Math.max(4, x)}px`;
+    (menu as HTMLElement).style.top = `${Math.max(4, y)}px`;
+    menu.classList.add("visible");
+    updateContextMenuState(doc, !!targetRow);
+  });
+
+  // Click on an item dispatches to the matching toolbar button
+  menu.addEventListener("click", async (ev: Event) => {
+    const item = (ev.target as Element).closest(
+      ".le-menu-item",
+    ) as HTMLElement | null;
+    if (!item || item.classList.contains("disabled")) return;
+    const action = item.getAttribute("data-action");
+    hide();
+    if (!action) return;
+    const buttonId: Record<string, string> = {
+      rename: "le-btn-rename",
+      delete: "le-btn-delete",
+      "new-sibling": "le-btn-new-sibling",
+      "new-child": "le-btn-new-child",
+      up: "le-btn-up",
+      down: "le-btn-down",
+      nest: "le-btn-nest",
+      unnest: "le-btn-unnest",
+      "expand-all": "le-btn-expand-all",
+      "collapse-all": "le-btn-collapse-all",
+    };
+    const btn = doc.getElementById(buttonId[action]) as HTMLButtonElement | null;
+    if (btn && !btn.disabled) btn.click();
+    markDirty();
+  });
+
+  // Close on outside click / Escape / scroll
+  doc.addEventListener("click", (ev: Event) => {
+    if (!(ev.target as Element).closest("#le-context-menu")) hide();
+  });
+  doc.addEventListener("keydown", (ev: KeyboardEvent) => {
+    if (ev.key === "Escape") hide();
+  });
+  doc
+    .getElementById("level-editor-content")
+    ?.addEventListener("scroll", hide, true);
+}
+
+/**
+ * Reflect toolbar enable/disable state on the context menu items.
+ * Mirrors updateToolbarState — keeps both menus in sync.
+ */
+function updateContextMenuState(doc: Document, hasRow: boolean): void {
+  const menu = doc.getElementById("le-context-menu");
+  if (!menu) return;
+  const setDisabled = (action: string, disabled: boolean) => {
+    const item = menu.querySelector(`.le-menu-item[data-action="${action}"]`);
+    if (item) item.classList.toggle("disabled", disabled);
+  };
+
+  setDisabled("new-sibling", false);
+  setDisabled("expand-all", false);
+  setDisabled("collapse-all", false);
+
+  if (!hasRow) {
+    setDisabled("rename", true);
+    setDisabled("delete", true);
+    setDisabled("new-child", true);
+    setDisabled("up", true);
+    setDisabled("down", true);
+    setDisabled("nest", true);
+    setDisabled("unnest", true);
+    return;
+  }
+
+  setDisabled("rename", false);
+  setDisabled("delete", false);
+  setDisabled("new-child", false);
+
+  const li = getSelectedLi(doc);
+  if (!li) return;
+  const parent = li.parentElement as HTMLElement | null;
+  const isFirst = !li.previousElementSibling;
+  const isLast = !li.nextElementSibling;
+  const isRoot = parent?.id === "root-list";
+  setDisabled("up", isFirst);
+  setDisabled("down", isLast);
+  setDisabled("nest", isFirst);
+  setDisabled("unnest", !!isRoot);
 }
 
 /** Insert a folder/file SVG and page number into every existing row. */

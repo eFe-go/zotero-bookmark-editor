@@ -287,6 +287,56 @@
         outline: 1px dashed var(--le-drop-indicator);
       }
 
+      /* ===== Context menu (right-click) ===== */
+      #le-context-menu {
+        position: fixed;
+        z-index: 9999;
+        min-width: 220px;
+        background: var(--le-bg);
+        border: 1px solid var(--le-border);
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+        padding: 4px 0;
+        display: none;
+        font-size: 13px;
+      }
+      #le-context-menu.visible {
+        display: block;
+      }
+      #le-context-menu .le-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px;
+        cursor: pointer;
+        color: var(--le-text);
+        user-select: none;
+      }
+      #le-context-menu .le-menu-item:hover:not(.disabled) {
+        background: var(--le-row-selected);
+      }
+      #le-context-menu .le-menu-item.disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #le-context-menu .le-menu-item svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        color: var(--le-text-muted);
+      }
+      #le-context-menu .le-menu-item .le-menu-shortcut {
+        margin-left: auto;
+        color: var(--le-text-muted);
+        font-size: 11px;
+        padding-left: 16px;
+      }
+      #le-context-menu .le-menu-separator {
+        height: 1px;
+        background: var(--le-divider);
+        margin: 4px 0;
+      }
+
       /* ===== Footer ===== */
       .le-footer {
         padding: 8px 12px;
@@ -347,5 +397,56 @@
       <button id="level-editor-discard" type="button"></button>
       <button id="level-editor-save" class="primary" type="button"></button>
     </footer>
+    <div id="le-context-menu" role="menu">
+      <div class="le-menu-item" data-action="rename">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">F2</span>
+      </div>
+      <div class="le-menu-item" data-action="delete">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">Del</span>
+      </div>
+      <div class="le-menu-separator"></div>
+      <div class="le-menu-item" data-action="new-sibling">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">Ins</span>
+      </div>
+      <div class="le-menu-item" data-action="new-child">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">Shift+Ins</span>
+      </div>
+      <div class="le-menu-separator"></div>
+      <div class="le-menu-item" data-action="up">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+      </div>
+      <div class="le-menu-item" data-action="down">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+      </div>
+      <div class="le-menu-item" data-action="nest">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">]</span>
+      </div>
+      <div class="le-menu-item" data-action="unnest">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+        <span class="le-menu-shortcut">[</span>
+      </div>
+      <div class="le-menu-separator"></div>
+      <div class="le-menu-item" data-action="expand-all">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+      </div>
+      <div class="le-menu-item" data-action="collapse-all">
+        <span class="le-menu-icon"></span>
+        <span class="le-menu-label"></span>
+      </div>
+    </div>
   </body>
 </html>
