@@ -33,7 +33,7 @@ export function renderTree(
   const toolbar = ztoolkit.UI.createElement(doc, "div", {
     namespace: "html",
     id: "j-outline-toolbar",
-    classList: ["j-hidden"], // 默认隐藏
+    classList: [], // toolbar visible by default — fixes "save button never enabled"
     children: [
       {
         tag: "button",
