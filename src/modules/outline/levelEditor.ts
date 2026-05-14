@@ -7,6 +7,8 @@ import {
   DEFAULT_BASE_FONT_SIZE,
   loadOutlineInfoFromJSON,
   updateOutlineFontSize,
+  registerOutlineCSS,
+  registerThemeChange,
 } from "./outline";
 import {
   initEventListener,
@@ -66,12 +68,18 @@ export async function openLevelEditor(
     const discardBtn = doc.getElementById("level-editor-discard");
     if (discardBtn) discardBtn.textContent = getString("level-editor-discard");
 
+    // Inject all the outline CSS rules (tree-list, tree-node, level-N, etc.)
+    // into the modal so the tree looks identical to the sidebar.
+    registerOutlineCSS(doc);
+    registerThemeChange(dlg);
+    updateOutlineFontSize(doc, baseFontSize);
+
     const rootList = doc.getElementById("root-list");
     if (rootList) {
       createTreeNodes(treeData, rootList, doc);
       injectActionButtons(doc);
-      updateOutlineFontSize(doc, baseFontSize);
       // Reuse all tree handlers (drag, drop, keyboard shortcuts, click).
+      // initEventListener depends on #j-outline-viewer + #root-list being in the doc.
       initEventListener(reader, doc);
     }
 
