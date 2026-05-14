@@ -850,7 +850,7 @@ export async function deleteSelectedNode(ev: Event) {
 // 默认设置为添加节点的同级节点
 export async function addNewNode(ev: Event) {
   const doc = (ev.target as Element).ownerDocument;
-  const newTitle = "新书签";
+  const newTitle = getString("outline-new-node-title");
   const selectedNode = doc.querySelector(".node-selected");
   const location = getReaderPagePosition();
 

@@ -17,6 +17,7 @@ export type FluentMessageId =
   | 'outline-edit-placeholder'
   | 'outline-empty-prompt'
   | 'outline-expand-all'
+  | 'outline-new-node-title'
   | 'outline-save-to-pdf'
   | 'plugin-name'
   | 'pref-group-about'

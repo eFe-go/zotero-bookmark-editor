@@ -9,6 +9,7 @@ outline-add = Agregar marcador
 outline-delete = Borrar marcador
 outline-save-to-pdf = Guardar indice en el PDF (escribe el campo /Outlines dentro del archivo)
 outline-edit-placeholder = Titulo del marcador
+outline-new-node-title = Nuevo marcador
 outline-delete-confirm =
     Este nodo tiene hijos. Borrarlo igual?
     { " " }

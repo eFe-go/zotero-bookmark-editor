@@ -9,6 +9,7 @@ outline-add = Add bookmark
 outline-delete = Delete bookmark
 outline-save-to-pdf = Save outline to PDF (writes the /Outlines entry inside the file)
 outline-edit-placeholder = Bookmark title
+outline-new-node-title = New bookmark
 outline-delete-confirm =
     This node has child nodes. Delete anyway?
     { " " }
