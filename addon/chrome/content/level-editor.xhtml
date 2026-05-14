@@ -132,33 +132,31 @@
       #j-outline-viewer {
         outline: none;
       }
-      /* Hard reset of any inherited list styling. Wins over outline_css. */
-      body.le-window #root-list,
-      body.le-window #root-list ul {
+      /* Root list: kill bullets and outer spacing only. */
+      body.le-window #root-list {
         list-style: none !important;
         margin: 0 !important;
         padding: 0 !important;
       }
-      body.le-window .tree-list li.tree-item {
+      body.le-window #root-list li.tree-item {
         position: relative;
         margin: 0;
         padding: 0;
         list-style: none;
       }
-      /* Nested lists: extra indent + vertical connector */
-      body.le-window .tree-list li.tree-item > ul.tree-list {
-        margin-left: 8px;
-        padding-left: 20px !important;
+      /* Nested lists inherit the same specificity as the root reset
+         (id + descendant ul) so we can force indent + connector here. */
+      body.le-window #root-list ul {
+        list-style: none !important;
+        margin: 0 !important;
+        padding: 0 0 0 22px !important;
         position: relative;
         border-left: 1px dashed var(--le-tree-line);
-      }
-      /* Hide the connector line that overflows past the last child */
-      body.le-window .tree-list li.tree-item:last-child > ul.tree-list {
-        /* keep border, looks fine for last */
+        margin-left: 6px !important;
       }
       /* Hide nested ul when parent is collapsed */
-      body.le-window .tree-list li.tree-item.collapsed > ul.tree-list {
-        display: none;
+      body.le-window #root-list li.tree-item.collapsed > ul {
+        display: none !important;
       }
 
       /* ===== Row (tree-node) ===== */
