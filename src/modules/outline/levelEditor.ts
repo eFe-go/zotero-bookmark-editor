@@ -74,6 +74,7 @@ export async function openLevelEditor(
 
     setupLabels(doc);
     setupToolbarIcons(doc);
+    setupImportDialogLabels(doc);
 
     const rootList = doc.getElementById("root-list");
     if (rootList) {
@@ -87,6 +88,7 @@ export async function openLevelEditor(
     wireToolbar(doc, reader, markDirty);
     wireKeyboardShortcuts(doc, reader, markDirty, dlg);
     wireContextMenu(doc, markDirty);
+    wireExportImport(doc, dlg, reader, markDirty);
 
     // Track edits to ask before discarding + update toolbar/status
     rootList?.addEventListener("click", () => {
@@ -202,6 +204,22 @@ function setupLabels(doc: Document): void {
   setTitle("le-btn-unnest", getString("level-editor-unnest"));
   setTitle("le-btn-expand-all", getString("level-editor-expand-all"));
   setTitle("le-btn-collapse-all", getString("level-editor-collapse-all"));
+  setTitle("le-btn-export-ai", getString("level-editor-export-ai"));
+  setTitle("le-btn-import-json", getString("level-editor-import-json"));
+}
+
+/** Static text inside the import dialog overlay. */
+function setupImportDialogLabels(doc: Document): void {
+  const set = (id: string, text: string) => {
+    const el = doc.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  set("le-import-title", getString("level-editor-import-title"));
+  set("le-import-help", getString("level-editor-import-help"));
+  set("le-import-cancel", getString("level-editor-import-cancel"));
+  set("le-import-apply", getString("level-editor-import-apply"));
+  const ta = doc.getElementById("le-import-textarea") as HTMLTextAreaElement | null;
+  if (ta) ta.placeholder = getString("level-editor-import-placeholder");
 }
 
 /** Inject SVG icons into each toolbar button. */
@@ -217,6 +235,8 @@ function setupToolbarIcons(doc: Document): void {
     ["le-btn-unnest", ICONS.arrowLeft],
     ["le-btn-expand-all", ICONS.expand],
     ["le-btn-collapse-all", ICONS.collapse],
+    ["le-btn-export-ai", ICONS.shareAI],
+    ["le-btn-import-json", ICONS.pasteJSON],
   ];
   for (const [id, svg] of icons) {
     const el = doc.getElementById(id);
@@ -702,5 +722,277 @@ async function persistAndSync(
   if (sidebarRoot) {
     sidebarRoot.innerHTML = "";
     createTreeNodes(outline, sidebarRoot, reader._iframeWindow!.document);
+  }
+}
+
+/* ===================================================================
+ * Export to AI / Import from JSON
+ * ================================================================ */
+
+type CleanNode = {
+  title: string;
+  page: number;
+  children?: CleanNode[];
+};
+
+/** Read the modal DOM and produce a depth-clean OutlineNode[] array. */
+function readOutlineFromModal(doc: Document): OutlineNode[] {
+  const root = doc.getElementById("root-list");
+  if (!root) return [];
+  const walk = (ul: Element, level: number): OutlineNode[] => {
+    const items = Array.from(
+      ul.querySelectorAll(":scope > li.tree-item"),
+    ) as HTMLLIElement[];
+    return items.map((li) => {
+      const titleSpan = li.querySelector("span.node-title")!;
+      const nodeDiv = li.querySelector("div.tree-node")!;
+      const childUl = li.querySelector(":scope > ul");
+      return {
+        level,
+        title: titleSpan.textContent || "",
+        page: parseInt(nodeDiv.getAttribute("page") || "1"),
+        x: parseFloat(nodeDiv.getAttribute("x") || "0"),
+        y: parseFloat(nodeDiv.getAttribute("y") || "0"),
+        children: childUl ? walk(childUl, level + 1) : [],
+        collapsed: li.classList.contains("collapsed"),
+      };
+    });
+  };
+  return walk(root, 1);
+}
+
+/** Strip level/x/y/collapsed so the JSON the user sees is minimal. */
+function toCleanNodes(nodes: OutlineNode[]): CleanNode[] {
+  return nodes.map((n) => {
+    const out: CleanNode = { title: n.title, page: n.page };
+    if (n.children && n.children.length > 0) {
+      out.children = toCleanNodes(n.children);
+    }
+    return out;
+  });
+}
+
+/** Reverse: fill back level/x/y so createTreeNodes is happy. */
+function fromCleanNodes(
+  nodes: CleanNode[],
+  level: number,
+): OutlineNode[] {
+  return nodes.map((n) => {
+    if (typeof n.title !== "string") {
+      throw new Error("Each node needs a 'title' (string).");
+    }
+    if (typeof n.page !== "number" || !Number.isFinite(n.page)) {
+      throw new Error(`Node '${n.title}' is missing a numeric 'page'.`);
+    }
+    const out: OutlineNode = {
+      level,
+      title: n.title,
+      page: n.page,
+      x: 0,
+      y: 0,
+      children: [],
+    };
+    if (Array.isArray(n.children) && n.children.length > 0) {
+      out.children = fromCleanNodes(n.children, level + 1);
+    }
+    return out;
+  });
+}
+
+/** Builds the text we put in the clipboard: prompt + JSON. */
+function buildExportText(outline: OutlineNode[]): string {
+  const clean = toCleanNodes(outline);
+  const payload = {
+    format: "zotero-bookmark-editor",
+    version: 1,
+    outline: clean,
+  };
+  const prompt = [
+    "Necesito que me ayudes a expandir el indice de bookmarks de un PDF.",
+    "Cada bookmark tiene: title (string), page (numero entero), children (array de bookmarks).",
+    "La jerarquia se infiere de la anidacion en children. Maximo 7 niveles.",
+    "",
+    "INDICE ACTUAL (formato JSON):",
+    "",
+    "```json",
+    JSON.stringify(payload, null, 2),
+    "```",
+    "",
+    "INSTRUCCIONES:",
+    "1. Sugerime que sub-secciones o capitulos agregar y donde.",
+    "2. Devolveme SOLO el JSON valido completo con los cambios aplicados (sin texto extra, sin ```).",
+    "3. Manten los page numbers existentes para los nodos que ya estaban.",
+    "4. Para nodos nuevos sin page conocido, usa el page del nodo padre.",
+  ].join("\n");
+  return prompt;
+}
+
+/** Connect the export + import toolbar buttons. */
+function wireExportImport(
+  doc: Document,
+  dlg: Window,
+  _reader: _ZoteroTypes.ReaderInstance,
+  markDirty: () => void,
+): void {
+  // --- Export ---
+  doc.getElementById("le-btn-export-ai")?.addEventListener("click", async () => {
+    const outline = readOutlineFromModal(doc);
+    const text = buildExportText(outline);
+    const ok = await copyToClipboard(text, dlg);
+    showToast(
+      doc,
+      getString(ok ? "level-editor-copied" : "level-editor-copy-failed"),
+    );
+  });
+
+  // --- Import: open overlay ---
+  const overlay = doc.getElementById("le-import-overlay");
+  const ta = doc.getElementById("le-import-textarea") as HTMLTextAreaElement | null;
+  const errEl = doc.getElementById("le-import-error");
+  const openOverlay = () => {
+    if (!overlay) return;
+    if (ta) ta.value = "";
+    if (errEl) errEl.textContent = "";
+    overlay.classList.add("visible");
+    setTimeout(() => ta?.focus(), 50);
+  };
+  const closeOverlay = () => {
+    overlay?.classList.remove("visible");
+  };
+  doc
+    .getElementById("le-btn-import-json")
+    ?.addEventListener("click", openOverlay);
+  doc
+    .getElementById("le-import-cancel")
+    ?.addEventListener("click", closeOverlay);
+  overlay?.addEventListener("click", (ev) => {
+    if (ev.target === overlay) closeOverlay();
+  });
+
+  // --- Import: apply ---
+  doc
+    .getElementById("le-import-apply")
+    ?.addEventListener("click", () => {
+      if (!ta) return;
+      const raw = ta.value.trim();
+      if (!raw) return;
+      if (errEl) errEl.textContent = "";
+
+      let parsed: any;
+      try {
+        // Try to recover from ```json fences if the AI added them
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```$/, "");
+        parsed = JSON.parse(cleaned);
+      } catch (e: any) {
+        if (errEl) {
+          errEl.textContent = getString("level-editor-import-invalid", {
+            args: { error: e?.message || String(e) },
+          });
+        }
+        return;
+      }
+
+      let nodes: CleanNode[];
+      try {
+        if (Array.isArray(parsed)) {
+          nodes = parsed;
+        } else if (parsed && Array.isArray(parsed.outline)) {
+          nodes = parsed.outline;
+        } else {
+          throw new Error("Expected an array or an object with 'outline'.");
+        }
+        if (nodes.length === 0) {
+          throw new Error("The outline is empty.");
+        }
+      } catch (e: any) {
+        if (errEl) {
+          errEl.textContent = getString("level-editor-import-invalid", {
+            args: { error: e?.message || String(e) },
+          });
+        }
+        return;
+      }
+
+      let outline: OutlineNode[];
+      try {
+        outline = fromCleanNodes(nodes, 1);
+      } catch (e: any) {
+        if (errEl) {
+          errEl.textContent = getString("level-editor-import-invalid", {
+            args: { error: e?.message || String(e) },
+          });
+        }
+        return;
+      }
+
+      const ok = dlg.confirm(getString("level-editor-import-confirm"));
+      if (!ok) return;
+
+      const rootList = doc.getElementById("root-list");
+      if (!rootList) return;
+      rootList.innerHTML = "";
+      createTreeNodes(outline, rootList, doc);
+      injectFolderFileIcons(doc);
+
+      const count = countNodes(outline);
+      closeOverlay();
+      markDirty();
+      updateStatusBar(doc);
+      updateToolbarState(doc);
+      showToast(
+        doc,
+        getString("level-editor-import-success", { args: { count } }),
+      );
+    });
+}
+
+function countNodes(nodes: OutlineNode[]): number {
+  let n = 0;
+  for (const node of nodes) {
+    n += 1;
+    if (node.children) n += countNodes(node.children);
+  }
+  return n;
+}
+
+/** Toast that fades in for ~1.5s. */
+function showToast(doc: Document, message: string): void {
+  const toast = doc.getElementById("le-toast");
+  if (!toast) return;
+  toast.textContent = message;
+  toast.classList.add("visible");
+  const win = doc.defaultView!;
+  win.setTimeout(() => toast.classList.remove("visible"), 1500);
+}
+
+/**
+ * Try navigator.clipboard.writeText first; fall back to a hidden
+ * <textarea> + execCommand("copy") which still works in privileged
+ * Zotero chrome contexts.
+ */
+async function copyToClipboard(text: string, dlg: Window): Promise<boolean> {
+  try {
+    const nav = dlg.navigator as any;
+    if (nav?.clipboard?.writeText) {
+      await nav.clipboard.writeText(text);
+      return true;
+    }
+  } catch (_e) {
+    /* fall through */
+  }
+  try {
+    const doc = dlg.document;
+    const ta = doc.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.left = "-10000px";
+    ta.style.top = "-10000px";
+    doc.body.appendChild(ta);
+    ta.select();
+    const ok = doc.execCommand("copy");
+    doc.body.removeChild(ta);
+    return ok;
+  } catch (_e) {
+    return false;
   }
 }

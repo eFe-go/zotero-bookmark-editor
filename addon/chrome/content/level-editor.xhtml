@@ -287,6 +287,117 @@
         outline: 1px dashed var(--le-drop-indicator);
       }
 
+      /* ===== Import JSON overlay ===== */
+      #le-import-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 8000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      #le-import-overlay.visible {
+        display: flex;
+      }
+      #le-import-dialog {
+        background: var(--le-bg);
+        color: var(--le-text);
+        border: 1px solid var(--le-border);
+        border-radius: 6px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+        width: 720px;
+        max-width: 92vw;
+        max-height: 80vh;
+        display: flex;
+        flex-direction: column;
+      }
+      #le-import-dialog h3 {
+        margin: 0;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--le-divider);
+      }
+      #le-import-dialog .le-import-help {
+        padding: 8px 16px;
+        font-size: 12px;
+        color: var(--le-text-muted);
+        background: var(--le-toolbar-bg);
+        border-bottom: 1px solid var(--le-divider);
+      }
+      #le-import-dialog textarea {
+        flex: 1;
+        min-height: 280px;
+        margin: 12px 16px 0;
+        padding: 8px;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 12px;
+        background: var(--le-bg);
+        color: var(--le-text);
+        border: 1px solid var(--le-button-border);
+        border-radius: 4px;
+        resize: vertical;
+        outline: none;
+      }
+      #le-import-dialog textarea:focus {
+        border-color: var(--le-primary);
+      }
+      #le-import-error {
+        padding: 4px 16px 0;
+        font-size: 12px;
+        color: #d32f2f;
+        min-height: 18px;
+      }
+      #le-import-dialog .le-import-footer {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        padding: 12px 16px;
+        border-top: 1px solid var(--le-divider);
+        margin-top: 8px;
+      }
+      #le-import-dialog .le-import-footer button {
+        padding: 6px 18px;
+        font-size: 13px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid var(--le-button-border);
+        background: var(--le-button-bg);
+        color: var(--le-text);
+      }
+      #le-import-dialog .le-import-footer button:hover {
+        background: var(--le-button-hover);
+      }
+      #le-import-dialog .le-import-footer button.primary {
+        background: var(--le-primary);
+        color: var(--le-primary-text);
+        border-color: var(--le-primary);
+      }
+      #le-import-dialog .le-import-footer button.primary:hover {
+        opacity: 0.92;
+      }
+
+      /* Tiny toast for "copied" feedback */
+      #le-toast {
+        position: fixed;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--le-text);
+        color: var(--le-bg);
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 13px;
+        z-index: 10000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      #le-toast.visible {
+        opacity: 0.92;
+      }
+
       /* ===== Context menu (right-click) ===== */
       #le-context-menu {
         position: fixed;
@@ -387,6 +498,9 @@
       <span class="le-sep"></span>
       <button id="le-btn-expand-all" type="button"></button>
       <button id="le-btn-collapse-all" type="button"></button>
+      <span class="le-sep"></span>
+      <button id="le-btn-export-ai" type="button"></button>
+      <button id="le-btn-import-json" type="button"></button>
     </div>
     <main id="level-editor-content">
       <div id="j-outline-viewer" tabindex="-1">
@@ -397,6 +511,19 @@
       <button id="level-editor-discard" type="button"></button>
       <button id="level-editor-save" class="primary" type="button"></button>
     </footer>
+    <div id="le-toast"></div>
+    <div id="le-import-overlay">
+      <div id="le-import-dialog" role="dialog">
+        <h3 id="le-import-title"></h3>
+        <p class="le-import-help" id="le-import-help"></p>
+        <textarea id="le-import-textarea" spellcheck="false"></textarea>
+        <div id="le-import-error"></div>
+        <div class="le-import-footer">
+          <button id="le-import-cancel" type="button"></button>
+          <button id="le-import-apply" class="primary" type="button"></button>
+        </div>
+      </div>
+    </div>
     <div id="le-context-menu" role="menu">
       <div class="le-menu-item" data-action="rename">
         <span class="le-menu-icon"></span>
